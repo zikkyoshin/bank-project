@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const app = express();
 
 app.use(bodyParser.json());
-app.use(express.static("public"));
+//app.use(express.static("public"));
 
 let users = {
   admin: { password: "adminpass", points: 1000 }
