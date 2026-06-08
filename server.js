@@ -1,55 +1,89 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+
 const app = express();
 
 app.use(bodyParser.json());
-//app.use(express.static("public"));
 
-let users = {
-  admin: { password: "adminpass", points: 1000 }
-};
+// ✅ MongoDB接続
+mongoose.connect("mongodb+srv://zikkyoshin:Llookeed8@cluster0.fm58jom.mongodb.net/bankDB?retryWrites=true&w=majority")
+  .then(() => console.log("DB接続OK"))
+  .catch(err => console.log(err));
 
-app.post("/login", (req, res) => {
+// ✅ ユーザーモデル
+const User = mongoose.model("User", {
+  id: String,
+  password: String,
+  points: Number
+});
+
+// ✅ トップページ
+app.get("/", (req, res) => {
+  res.send("銀行アプリ動いてる🔥");
+});
+
+// ✅ ユーザー作成
+app.post("/create-user", async (req, res) => {
   const { id, password } = req.body;
 
-  if (users[id] && users[id].password === password) {
-    res.json({ message: "ログイン成功", user: id });
+  const existingUser = await User.findOne({ id });
+  if (existingUser) {
+    return res.status(400).send("すでに存在する");
+  }
+
+  const user = new User({
+    id,
+    password,
+    points: 0
+  });
+
+  await user.save();
+
+  res.send("ユーザー作成成功");
+});
+
+// ✅ ログイン
+app.post("/login", async (req, res) => {
+  const { id, password } = req.body;
+
+  const user = await User.findOne({ id, password });
+
+  if (user) {
+    res.json(user);
   } else {
     res.status(401).send("ログイン失敗");
   }
 });
 
-app.post("/send", (req, res) => {
+// ✅ 送金
+app.post("/send", async (req, res) => {
   const { from, to, amount } = req.body;
 
-  if (!users[from] || !users[to]) {
+  const fromUser = await User.findOne({ id: from });
+  const toUser = await User.findOne({ id: to });
+
+  if (!fromUser || !toUser) {
     return res.status(400).send("ユーザー存在しない");
   }
 
-  if (users[from].points < amount) {
+  if (fromUser.points < amount) {
     return res.status(400).send("残高不足");
   }
 
-  users[from].points -= amount;
-  users[to].points += amount;
+  fromUser.points -= amount;
+  toUser.points += amount;
+
+  await fromUser.save();
+  await toUser.save();
 
   res.send("送金成功");
 });
 
-app.get("/admin", (req, res) => {
+// ✅ 管理者一覧
+app.get("/admin", async (req, res) => {
+  const users = await User.find();
   res.json(users);
-});
-
-app.post("/create-user", (req, res) => {
-  const { id, password } = req.body;
-
-  if (users[id]) {
-    return res.status(400).send("すでに存在する");
-  }
-
-  users[id] = { password, points: 0 };
-
-  res.send("ユーザー作成成功");
 });
 
 const PORT = process.env.PORT || 3000;
