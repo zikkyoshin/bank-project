@@ -8,8 +8,23 @@
 
 <h1>銀行アプリ</h1>
 
+<!-- ログインボタン -->
+<button onclick="showLogin()">ログイン</button>
+
+<!-- 登録ボタン -->
 <button onclick="showRegister()">ユーザー登録</button>
 
+<!-- ログインフォーム -->
+<div id="loginForm" style="display:none; margin-top:20px;">
+  <h2>ログイン</h2>
+  
+  <input id="loginId" placeholder="ユーザーID"><br><br>
+  <input id="loginPassword" placeholder="パスワード" type="password"><br><br>
+  
+  <button onclick="login()">ログイン</button>
+</div>
+
+<!-- 登録フォーム -->
 <div id="registerForm" style="display:none; margin-top:20px;">
   <h2>ユーザー登録</h2>
   
@@ -19,9 +34,20 @@
   <button onclick="createUser()">登録</button>
 </div>
 
+<!-- ログイン成功表示 -->
+<div id="welcome" style="display:none;">
+  <h2 id="welcomeText"></h2>
+</div>
+
 <script>
   function showRegister() {
     document.getElementById("registerForm").style.display = "block";
+    document.getElementById("loginForm").style.display = "none";
+  }
+
+  function showLogin() {
+    document.getElementById("loginForm").style.display = "block";
+    document.getElementById("registerForm").style.display = "none";
   }
 
   async function createUser() {
@@ -39,7 +65,30 @@
     const text = await res.text();
     alert(text);
   }
+
+  async function login() {
+    const id = document.getElementById("loginId").value;
+    const password = document.getElementById("loginPassword").value;
+
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id, password })
+    });
+
+    if (res.ok) {
+      const user = await res.json();
+      document.getElementById("welcome").style.display = "block";
+      document.getElementById("welcomeText").innerText =
+        user.id + " でログイン成功！";
+    } else {
+      alert("ログイン失敗");
+    }
+  }
 </script>
 
 </body>
 </html>
+``
