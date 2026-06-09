@@ -6,6 +6,7 @@ const app = express();
 
 app.use(bodyParser.json());
 
+app.use(express.static("public"));
 // ✅ MongoDB接続
 mongoose.connect("mongodb+srv://zikkyoshin:Llookeed8@cluster0.fm58jom.mongodb.net/bankDB?retryWrites=true&w=majority")
   .then(() => console.log("DB接続OK"))
