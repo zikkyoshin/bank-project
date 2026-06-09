@@ -2,99 +2,43 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>疑似銀行</title>
+  <title>銀行アプリ</title>
 </head>
 <body>
 
-<h2>ログイン</h2>
-<input id="id" placeholder="ID">
-<input id="password" placeholder="パスワード">
-<button onclick="login()">ログイン</button>
+<h1>銀行アプリ</h1>
 
-<div id="main" style="display:none;">
-  <h3>ポイント: <span id="points"></span></h3>
+<button onclick="showRegister()">ユーザー登録</button>
 
-  <h4>送信</h4>
-  <input id="to" placeholder="相手ID">
-  <input id="amount" placeholder="ポイント">
-  <button onclick="send()">送信</button>
-</div>
-
-<div id="admin" style="display:none;">
-  <h3>管理者画面</h3>
-  <button onclick="loadUsers()">一覧</button>
-  <pre id="users"></pre>
-<h4>ユーザー作成</h4>
-<input id="newId" placeholder="新しいID">
-<input id="newPass" placeholder="パスワード">
-<button onclick="createUser()">作成</button>
+<div id="registerForm" style="display:none; margin-top:20px;">
+  <h2>ユーザー登録</h2>
+  
+  <input id="userId" placeholder="ユーザーID"><br><br>
+  <input id="password" placeholder="パスワード"><br><br>
+  
+  <button onclick="createUser()">登録</button>
 </div>
 
 <script>
-let currentUser;
-
-async function login() {
-  const id = document.getElementById("id").value;
-  const password = document.getElementById("password").value;
-
-  const res = await fetch("/login", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({id, password})
-  });
-
-  if (!res.ok) return alert("ログイン失敗");
-
-  const data = await res.json();
-  currentUser = data;
-
-  document.getElementById("points").innerText = data.points;
-  document.getElementById("main").style.display = "block";
-
-  if (data.id === "admin") {
-    document.getElementById("admin").style.display = "block";
+  function showRegister() {
+    document.getElementById("registerForm").style.display = "block";
   }
-}
 
-async function send() {
-  const to = document.getElementById("to").value;
-  const amount = parseInt(document.getElementById("amount").value);
+  async function createUser() {
+    const id = document.getElementById("userId").value;
+    const password = document.getElementById("password").value;
 
-  await fetch("/send", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      from: currentUser.id,
-      to,
-      amount
-    })
-  });
+    const res = await fetch("/create-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id, password })
+    });
 
-  alert("送信完了");
-}
-
-async function loadUsers() {
-  const res = await fetch("/admin");
-  const data = await res.json();
-  document.getElementById("users").innerText = JSON.stringify(data, null, 2);
-}
-
-async function createUser() {
-  const id = document.getElementById("newId").value;
-  const password = document.getElementById("newPass").value;
-
-  const res = await fetch("/create-user", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({id, password})
-  });
-
-  if (!res.ok) {
-    alert("作成失敗（IDかぶり）");
-  } else {
-    alert("作成成功");
+    const text = await res.text();
+    alert(text);
   }
-}
 </script>
 
 </body>
