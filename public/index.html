@@ -38,7 +38,17 @@
 <div id="welcome" style="display:none;">
   <h2 id="welcomeText"></h2>
 </div>
-
+  
+<!-- 送金機能 -->
+<div id="transfer" style="display:none; margin-top:20px;">
+  <h2>送金（管理者）</h2>
+  
+  <input id="toUser" placeholder="送金先ユーザーID"><br><br>
+  <input id="amount" placeholder="金額" type="number"><br><br>
+  
+  <button onclick="sendMoney()">送金する</button>
+</div>
+``
 <script>
   function showRegister() {
     document.getElementById("registerForm").style.display = "block";
