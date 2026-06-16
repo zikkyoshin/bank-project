@@ -5,26 +5,26 @@ const mongoose = require("mongoose");
 const app = express();
 
 app.use(bodyParser.json());
-
 app.use(express.static("public"));
-// ✅ MongoDB接続
+
+// MongoDB接続
 mongoose.connect("mongodb+srv://zikkyoshin:Llookeed8@cluster0.fm58jom.mongodb.net/bankDB?retryWrites=true&w=majority")
   .then(() => console.log("DB接続OK"))
   .catch(err => console.log(err));
 
-// ✅ ユーザーモデル
+// モデル
 const User = mongoose.model("User", {
   id: String,
   password: String,
   points: Number
 });
 
-// ✅ トップページ
+// トップ
 app.get("/", (req, res) => {
   res.send("銀行アプリ動いてる🔥");
 });
 
-// ✅ ユーザー作成
+// ユーザー作成
 app.post("/create-user", async (req, res) => {
   const { id, password } = req.body;
 
@@ -44,7 +44,7 @@ app.post("/create-user", async (req, res) => {
   res.send("ユーザー作成成功");
 });
 
-// ✅ ログイン
+// ログイン
 app.post("/login", async (req, res) => {
   const { id, password } = req.body;
 
@@ -57,7 +57,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ✅ 送金
+// 🔥送金（ここが修正ポイント）
 app.post("/send", async (req, res) => {
   const { from, to, amount } = req.body;
 
@@ -68,20 +68,24 @@ app.post("/send", async (req, res) => {
     return res.status(400).send("ユーザー存在しない");
   }
 
-  if (fromUser.points < amount) {
-    return res.status(400).send("残高不足");
+  // ✅ 管理者は無限送金OK
+  if (from !== "admin") {
+    if (fromUser.points < amount) {
+      return res.status(400).send("残高不足");
+    }
+
+    fromUser.points -= amount;
+    await fromUser.save();
   }
 
-  fromUser.points -= amount;
+  // ✅ 受け取る側は常に増える
   toUser.points += amount;
-
-  await fromUser.save();
   await toUser.save();
 
   res.send("送金成功");
 });
 
-// ✅ 管理者一覧
+// 管理者確認
 app.get("/admin", async (req, res) => {
   const users = await User.find();
   res.json(users);
