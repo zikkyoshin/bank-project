@@ -38,7 +38,7 @@
 <div id="welcome" style="display:none;">
   <h2 id="welcomeText"></h2>
 </div>
-  
+
 <!-- 送金機能 -->
 <div id="transfer" style="display:none; margin-top:20px;">
   <h2>送金（管理者）</h2>
@@ -51,6 +51,7 @@
 
 <script>
   let currentUser = "";
+
   function showRegister() {
     document.getElementById("registerForm").style.display = "block";
     document.getElementById("loginForm").style.display = "none";
@@ -78,56 +79,56 @@
   }
 
   async function login() {
-  const id = document.getElementById("loginId").value;
-  const password = document.getElementById("loginPassword").value;
+    const id = document.getElementById("loginId").value;
+    const password = document.getElementById("loginPassword").value;
 
-  const res = await fetch("/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ id, password })
-  });
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ id, password })
+    });
 
-  if (res.ok) {
-    const user = await res.json();
+    if (res.ok) {
+      const user = await res.json();
 
-    currentUser = user.id;  // ←①これ追加🔥
+      currentUser = user.id;
 
-    document.getElementById("welcome").style.display = "block";
-    document.getElementById("welcomeText").innerText =
-      user.id + " でログイン成功！";
+      document.getElementById("welcome").style.display = "block";
+      document.getElementById("welcomeText").innerText =
+        user.id + " でログイン成功！";
 
-    // ←②これ追加🔥
-    if (user.id === "admin") {
-      document.getElementById("transfer").style.display = "block";
+      // 管理者だけ送金画面表示
+      if (user.id === "admin") {
+        document.getElementById("transfer").style.display = "block";
+      }
+
+    } else {
+      alert("ログイン失敗");
     }
-
-  } else {
-    alert("ログイン失敗");
   }
-}
 
-// ✅👇ここに追加！！
-async function sendMoney() {
-  const to = document.getElementById("toUser").value;
-  const amount = Number(document.getElementById("amount").value);
+  async function sendMoney() {
+    const to = document.getElementById("toUser").value;
+    const amount = Number(document.getElementById("amount").value);
 
-  const res = await fetch("/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: currentUser,
-      to: to,
-      amount: amount
-    })
-  });
+    const res = await fetch("/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: currentUser,
+        to: to,
+        amount: amount
+      })
+    });
 
-  const text = await res.text();
-  alert(text);
-}
+    const text = await res.text();
+    alert(text);
+  }
+</script>
 
-
-``
+</body>
+</html>
