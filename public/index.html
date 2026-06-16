@@ -95,11 +95,12 @@
 
       currentUser = user.id;
 
+      // ✅ 残高も表示
       document.getElementById("welcome").style.display = "block";
       document.getElementById("welcomeText").innerText =
-        user.id + " でログイン成功！";
+        user.id + " でログイン成功！ 残高: " + user.points;
 
-      // 管理者だけ送金画面表示
+      // ✅ 管理者なら送金表示
       if (user.id === "admin") {
         document.getElementById("transfer").style.display = "block";
       }
