@@ -1,134 +1,175 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>銀行アプリ</title>
+<meta charset="UTF-8">
+<title>銀行アプリ</title>
+
+<style>
+body { text-align:center; font-family:sans-serif; }
+.container { width:400px; margin:0 auto; }
+input, button { margin:5px; }
+</style>
+
 </head>
+
 <body>
+
+<div class="container">
 
 <h1>銀行アプリ</h1>
 
-<!-- ログインボタン -->
 <button onclick="showLogin()">ログイン</button>
+<button onclick="showRegister()">登録</button>
 
-<!-- 登録ボタン -->
-<button onclick="showRegister()">ユーザー登録</button>
-
-<!-- ログインフォーム -->
-<div id="loginForm" style="display:none; margin-top:20px;">
-  <h2>ログイン</h2>
-  
-  <input id="loginId" placeholder="ユーザーID"><br><br>
-  <input id="loginPassword" placeholder="パスワード" type="password"><br><br>
-  
-  <button onclick="login()">ログイン</button>
+<div id="loginForm" style="display:none;">
+<input id="loginId" placeholder="ID"><br>
+<input id="loginPassword" placeholder="パス" type="password"><br>
+<button onclick="login()">ログイン</button>
 </div>
 
-<!-- 登録フォーム -->
-<div id="registerForm" style="display:none; margin-top:20px;">
-  <h2>ユーザー登録</h2>
-  
-  <input id="userId" placeholder="ユーザーID"><br><br>
-  <input id="password" placeholder="パスワード"><br><br>
-  
-  <button onclick="createUser()">登録</button>
+<div id="registerForm" style="display:none;">
+<input id="userId" placeholder="ID"><br>
+<input id="password" placeholder="パス"><br>
+<button onclick="createUser()">登録</button>
 </div>
 
-<!-- ログイン成功表示 -->
-<div id="welcome" style="display:none;">
-  <h2 id="welcomeText"></h2>
+<div id="welcome" style="display:none;"></div>
+
+<div id="adminPanel" style="display:none;">
+<h2>管理者</h2>
+
+<h3>送金</h3>
+<input id="toUser" placeholder="送信先">
+<input id="amount" placeholder="金額" type="number">
+<button onclick="send()">送金</button>
+
+<h3>ユーザー一覧</h3>
+<div id="users"></div>
+
+<h3>履歴</h3>
+<div id="history"></div>
+
 </div>
 
-<!-- 送金機能 -->
-<div id="transfer" style="display:none; margin-top:20px;">
-  <h2>送金（管理者）</h2>
-  
-  <input id="toUser" placeholder="送金先ユーザーID"><br><br>
-  <input id="amount" placeholder="金額" type="number"><br><br>
-  
-  <button onclick="sendMoney()">送金する</button>
 </div>
 
 <script>
-  let currentUser = "";
 
-  function showRegister() {
-    document.getElementById("registerForm").style.display = "block";
-    document.getElementById("loginForm").style.display = "none";
+let currentUser="";
+
+function showLogin(){
+  loginForm.style.display="block";
+  registerForm.style.display="none";
+}
+
+function showRegister(){
+  registerForm.style.display="block";
+  loginForm.style.display="none";
+}
+
+async function createUser(){
+  await fetch("/create-user",{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      id:userId.value,
+      password:password.value
+    })
+  });
+  alert("作成");
+}
+
+async function login(){
+  const res=await fetch("/login",{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      id:loginId.value,
+      password:loginPassword.value
+    })
+  });
+
+  if(!res.ok){ alert("失敗"); return; }
+
+  const user=await res.json();
+  currentUser=user.id;
+
+  welcome.style.display="block";
+  welcome.innerText=user.id+" 残高:"+user.points;
+
+  if(user.id==="admin"){
+    adminPanel.style.display="block";
+    loadUsers();
+    loadHistory();
   }
+}
 
-  function showLogin() {
-    document.getElementById("loginForm").style.display = "block";
-    document.getElementById("registerForm").style.display = "none";
-  }
+async function send(){
+  const text=await fetch("/send",{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      from:currentUser,
+      to:toUser.value,
+      amount:Number(amount.value)
+    })
+  }).then(r=>r.text());
 
-  async function createUser() {
-    const id = document.getElementById("userId").value;
-    const password = document.getElementById("password").value;
+  alert(text);
+  loadUsers();
+}
 
-    const res = await fetch("/create-user", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ id, password })
-    });
+// ユーザー一覧
+async function loadUsers(){
+  const data=await fetch("/users").then(r=>r.json());
 
-    const text = await res.text();
-    alert(text);
-  }
+  users.innerHTML="";
 
-  async function login() {
-    const id = document.getElementById("loginId").value;
-    const password = document.getElementById("loginPassword").value;
+  data.forEach(u=>{
+    users.innerHTML+=`
+    <div>
+      ${u.id} (${u.points})
+      <button onclick="delUser('${u.id}')">削除</button>
+      <input id="ban_${u.id}" placeholder="日">
+      <button onclick="banUser('${u.id}')">BAN</button>
+    </div>`;
+  });
+}
 
-    const res = await fetch("/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ id, password })
-    });
+// 削除
+async function delUser(id){
+  await fetch("/delete-user",{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id})
+  });
+  loadUsers();
+}
 
-    if (res.ok) {
-      const user = await res.json();
+// BAN
+async function banUser(id){
+  const days=document.getElementById("ban_"+id).value;
 
-      currentUser = user.id;
+  await fetch("/ban",{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id,days})
+  });
 
-      // ✅ 残高も表示
-      document.getElementById("welcome").style.display = "block";
-      document.getElementById("welcomeText").innerText =
-        user.id + " でログイン成功！ 残高: " + user.points;
+  loadUsers();
+}
 
-      // ✅ 管理者なら送金表示
-      if (user.id === "admin") {
-        document.getElementById("transfer").style.display = "block";
-      }
+// 履歴
+async function loadHistory(){
+  const data=await fetch("/history").then(r=>r.json());
 
-    } else {
-      alert("ログイン失敗");
-    }
-  }
+  history.innerHTML="";
+  data.forEach(h=>{
+    history.innerHTML+=`
+    <div>${h.from} → ${h.to} : ${h.amount}</div>`;
+  });
+}
 
-  async function sendMoney() {
-    const to = document.getElementById("toUser").value;
-    const amount = Number(document.getElementById("amount").value);
-
-    const res = await fetch("/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: currentUser,
-        to: to,
-        amount: amount
-      })
-    });
-
-    const text = await res.text();
-    alert(text);
-  }
 </script>
 
 </body>
