@@ -6,17 +6,15 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// DB接続
-mongoose.connect("mongodb+srv://zikkyoshin:Llookeed8@cluster0.fm58jom.mongodb.net/bankDB?retryWrites=true&w=majority")
-  .then(() => console.log("DB接続OK"))
-  .catch(err => console.log(err));
+mongoose.connect("mongodb+srv://zikkyoshin:Llookeed8@cluster0.fm58jom.mongodb.net/bankDB?retryWrites=true&w=majority");
 
 // モデル
 const User = mongoose.model("User", {
   id: String,
   password: String,
   points: Number,
-  bannedUntil: Date
+  bannedUntil: Date,
+  deleted: Boolean
 });
 
 const History = mongoose.model("History", {
@@ -26,18 +24,19 @@ const History = mongoose.model("History", {
   date: String
 });
 
-// ユーザー作成
+// 作成
 app.post("/create-user", async (req, res) => {
   const { id, password } = req.body;
 
   const exists = await User.findOne({ id });
-  if (exists) return res.send("すでに存在");
+  if (exists) return res.send("存在");
 
   await new User({
     id,
     password,
     points: 0,
-    bannedUntil: null
+    bannedUntil: null,
+    deleted: false
   }).save();
 
   res.send("作成成功");
@@ -47,11 +46,12 @@ app.post("/create-user", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { id, password } = req.body;
 
-  const user = await User.findOne({ id, password });
+  const user = await User.findOne({ id, password, deleted: false });
   if (!user) return res.status(401).send("失敗");
 
-  if (user.bannedUntil && new Date() < user.bannedUntil) {
-    return res.status(403).send("BAN中");
+  if (user.bannedUntil) {
+    if (user.bannedUntil === "permanent") return res.status(403).send("永久BAN");
+    if (new Date() < new Date(user.bannedUntil)) return res.status(403).send("BAN中");
   }
 
   res.json(user);
@@ -61,61 +61,86 @@ app.post("/login", async (req, res) => {
 app.post("/send", async (req, res) => {
   const { from, to, amount } = req.body;
 
-  const fromUser = await User.findOne({ id: from });
-  const toUser = await User.findOne({ id: to });
+  const f = await User.findOne({ id: from });
+  const t = await User.findOne({ id: to });
 
-  if (!fromUser || !toUser) return res.send("ユーザー不存在");
+  if (!f || !t) return res.send("エラー");
 
   if (from !== "admin") {
-    if (fromUser.points < amount) return res.send("残高不足");
-    fromUser.points -= amount;
-    await fromUser.save();
+    if (f.points < amount) return res.send("残高不足");
+    f.points -= amount;
+    await f.save();
   }
 
-  toUser.points += amount;
-  await toUser.save();
+  t.points += amount;
+  await t.save();
 
   await new History({
-    from,
-    to,
-    amount,
+    from, to, amount,
     date: new Date().toLocaleString()
   }).save();
 
   res.send("送金成功");
 });
 
-// ユーザー一覧
+// 一覧
 app.get("/users", async (req, res) => {
-  const users = await User.find();
+  const users = await User.find({ deleted: false });
+  res.json(users);
+});
+
+// 削除済み一覧
+app.get("/deleted-users", async (req, res) => {
+  const users = await User.find({ deleted: true });
   res.json(users);
 });
 
 // 削除
 app.post("/delete-user", async (req, res) => {
   const { id } = req.body;
+  await User.updateOne({ id }, { deleted: true });
+  res.send("削除");
+});
+
+// 完全削除
+app.post("/hard-delete", async (req, res) => {
+  const { id } = req.body;
   await User.deleteOne({ id });
-  res.send("削除成功");
+  res.send("完全削除");
+});
+
+// 復帰
+app.post("/restore", async (req, res) => {
+  const { id } = req.body;
+  await User.updateOne({ id }, { deleted: false });
+  res.send("復帰");
 });
 
 // BAN
 app.post("/ban", async (req, res) => {
   const { id, days } = req.body;
 
-  const date = new Date();
-  date.setDate(date.getDate() + Number(days));
+  if (days === "permanent") {
+    await User.updateOne({ id }, { bannedUntil: "permanent" });
+  } else {
+    const d = new Date();
+    d.setDate(d.getDate() + Number(days));
+    await User.updateOne({ id }, { bannedUntil: d });
+  }
 
-  await User.updateOne({ id }, { bannedUntil: date });
+  res.send("BAN");
+});
 
-  res.send("BAN完了");
+// BAN解除
+app.post("/unban", async (req, res) => {
+  const { id } = req.body;
+  await User.updateOne({ id }, { bannedUntil: null });
+  res.send("解除");
 });
 
 // 履歴
 app.get("/history", async (req, res) => {
-  const data = await History.find();
-  res.json(data);
+  res.json(await History.find());
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("server running"));
-``
+app.listen(3000);
