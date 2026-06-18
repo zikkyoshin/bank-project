@@ -8,6 +8,7 @@
 body { text-align:center; font-family:sans-serif; }
 .container { width:400px; margin:0 auto; }
 input, button { margin:5px; }
+.ban { color:red; }
 </style>
 
 </head>
@@ -57,6 +58,7 @@ input, button { margin:5px; }
 
 let currentUser="";
 
+// 表示切替
 function showLogin(){
   loginForm.style.display="block";
   registerForm.style.display="none";
@@ -67,6 +69,7 @@ function showRegister(){
   loginForm.style.display="none";
 }
 
+// 登録
 async function createUser(){
   await fetch("/create-user",{
     method:"POST",
@@ -76,11 +79,12 @@ async function createUser(){
       password:password.value
     })
   });
-  alert("作成");
+  alert("作成完了");
 }
 
+// ログイン
 async function login(){
-  const res=await fetch("/login",{
+  const res = await fetch("/login",{
     method:"POST",
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -89,14 +93,18 @@ async function login(){
     })
   });
 
-  if(!res.ok){ alert("失敗"); return; }
+  if(!res.ok){
+    alert("ログイン失敗 or BAN中");
+    return;
+  }
 
-  const user=await res.json();
-  currentUser=user.id;
+  const user = await res.json();
+  currentUser = user.id;
 
-  welcome.style.display="block";
-  welcome.innerText=user.id+" 残高:"+user.points;
+  welcome.style.display = "block";
+  welcome.innerText = user.id + " 残高:" + user.points;
 
+  // 管理者パネル
   if(user.id==="admin"){
     adminPanel.style.display="block";
     loadUsers();
@@ -104,8 +112,9 @@ async function login(){
   }
 }
 
+// 送金
 async function send(){
-  const text=await fetch("/send",{
+  const text = await fetch("/send",{
     method:"POST",
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -119,20 +128,29 @@ async function send(){
   loadUsers();
 }
 
-// ユーザー一覧
+// ✅ ユーザー一覧（BAN表示込み）
 async function loadUsers(){
-  const data=await fetch("/users").then(r=>r.json());
+  const data = await fetch("/users").then(r=>r.json());
 
   users.innerHTML="";
 
   data.forEach(u=>{
-    users.innerHTML+=`
+
+    let banText = "";
+    if(u.bannedUntil && new Date() < new Date(u.bannedUntil)){
+      banText = "<span class='ban'>🚫BAN中</span>";
+    }
+
+    users.innerHTML += `
     <div>
-      ${u.id} (${u.points})
+      ${u.id} (${u.points}) ${banText}
+
       <button onclick="delUser('${u.id}')">削除</button>
-      <input id="ban_${u.id}" placeholder="日">
+
+      <input id="ban_${u.id}" placeholder="日数">
       <button onclick="banUser('${u.id}')">BAN</button>
-    </div>`;
+    </div>
+    `;
   });
 }
 
@@ -143,30 +161,37 @@ async function delUser(id){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({id})
   });
+
+  alert("削除完了");
   loadUsers();
 }
 
-// BAN
+// ✅ BAN（結果表示付き）
 async function banUser(id){
-  const days=document.getElementById("ban_"+id).value;
+  const days = document.getElementById("ban_"+id).value;
 
-  await fetch("/ban",{
+  const res = await fetch("/ban",{
     method:"POST",
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({id,days})
   });
 
+  const text = await res.text();
+  alert(text); // ←これで反応見える！
+
   loadUsers();
 }
 
-// 履歴
+// 履歴表示
 async function loadHistory(){
-  const data=await fetch("/history").then(r=>r.json());
+  const data = await fetch("/history").then(r=>r.json());
 
   history.innerHTML="";
+
   data.forEach(h=>{
-    history.innerHTML+=`
-    <div>${h.from} → ${h.to} : ${h.amount}</div>`;
+    history.innerHTML += `
+    <div>${h.from} → ${h.to} : ${h.amount}</div>
+    `;
   });
 }
 
@@ -174,3 +199,4 @@ async function loadHistory(){
 
 </body>
 </html>
+``
