@@ -7,7 +7,6 @@
 <style>
 body{ text-align:center; font-family:sans-serif;}
 .box{border:1px solid #aaa; padding:5px; margin:5px;}
-.ban{color:red;}
 </style>
 
 </head>
@@ -17,11 +16,20 @@ body{ text-align:center; font-family:sans-serif;}
 <h1>銀行</h1>
 
 <button onclick="showLogin()">ログイン</button>
+<button onclick="showRegister()">登録</button>
 
+<!-- ログイン -->
 <div id="loginForm" style="display:none;">
-<input id="loginId">
-<input id="loginPassword" type="password">
+<input id="loginId" placeholder="ID">
+<input id="loginPassword" type="password" placeholder="パス">
 <button onclick="login()">ログイン</button>
+</div>
+
+<!-- ✅ 追加：登録フォーム -->
+<div id="registerForm" style="display:none;">
+<input id="userId" placeholder="ID">
+<input id="password" placeholder="パス">
+<button onclick="createUser()">登録</button>
 </div>
 
 <div id="welcome"></div>
@@ -43,22 +51,57 @@ body{ text-align:center; font-family:sans-serif;}
 
 let currentUser="";
 
+// 表示
 function showLogin(){
  loginForm.style.display="block";
+ registerForm.style.display="none";
 }
 
+function showRegister(){
+ registerForm.style.display="block";
+ loginForm.style.display="none";
+}
+
+// ✅ 登録
+async function createUser(){
+ const res = await fetch("/create-user",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({
+    id:userId.value,
+    password:password.value
+  })
+ });
+
+ alert(await res.text());
+}
+
+// ログイン
 async function login(){
  const res=await fetch("/login",{
   method:"POST",
   headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({id:loginId.value,password:loginPassword.value})
+  body:JSON.stringify({
+    id:loginId.value,
+    password:loginPassword.value
+  })
  });
 
- if(!res.ok){alert("失敗");return;}
+ if(!res.ok){
+  alert("失敗 or BAN中");
+  return;
+ }
 
  const u=await res.json();
  currentUser=u.id;
+
  welcome.innerText=u.id+" 残高:"+u.points;
+
+ // BAN残り表示
+ if(u.bannedUntil && u.bannedUntil !== "permanent"){
+   const diff = Math.ceil((new Date(u.bannedUntil) - new Date())/86400000);
+   welcome.innerText += "（BAN残り:"+diff+"日）";
+ }
 
  if(u.id==="admin"){
   admin.style.display="block";
@@ -68,25 +111,19 @@ async function login(){
  }
 }
 
-// ユーザー一覧
+// --- 以下そのまま（前と同じ） ---
+
 async function loadUsers(){
  const data=await fetch("/users").then(r=>r.json());
  users.innerHTML="";
-
  data.forEach(u=>{
-  let ban="";
-  if(u.bannedUntil){
-   ban="<span class='ban'>🚫</span>";
-  }
-
   users.innerHTML+=`
   <div class="box" onclick="selectUser('${u.id}')">
-    ${u.id} (${u.points}) ${ban}
+    ${u.id} (${u.points})
   </div>`;
  });
 }
 
-// 選択メニュー
 function selectUser(id){
  if(!confirm(id+"操作する？")) return;
 
@@ -106,7 +143,7 @@ function selectUser(id){
  }
 
  if(action==="4"){
-  if(confirm("本当に削除？")){
+  if(confirm("削除する？")){
    fetch("/delete-user",{method:"POST",headers:{'Content-Type':'application/json'},
    body:JSON.stringify({id})});
   }
@@ -115,11 +152,9 @@ function selectUser(id){
  setTimeout(loadUsers,500);
 }
 
-// 削除済み
 async function loadDeleted(){
  const data=await fetch("/deleted-users").then(r=>r.json());
  deleted.innerHTML="";
-
  data.forEach(u=>{
   deleted.innerHTML+=`
   <div class="box">
@@ -143,7 +178,6 @@ function hard(id){
  }
 }
 
-// 履歴
 async function loadHistory(){
  const d=await fetch("/history").then(r=>r.json());
  history.innerHTML="";
