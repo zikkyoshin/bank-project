@@ -2,55 +2,40 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>銀行アプリ</title>
+<title>銀行</title>
 
 <style>
-body { text-align:center; font-family:sans-serif; }
-.container { width:400px; margin:0 auto; }
-input, button { margin:5px; }
-.ban { color:red; }
+body{ text-align:center; font-family:sans-serif;}
+.box{border:1px solid #aaa; padding:5px; margin:5px;}
+.ban{color:red;}
 </style>
 
 </head>
 
 <body>
 
-<div class="container">
-
-<h1>銀行アプリ</h1>
+<h1>銀行</h1>
 
 <button onclick="showLogin()">ログイン</button>
-<button onclick="showRegister()">登録</button>
 
 <div id="loginForm" style="display:none;">
-<input id="loginId" placeholder="ID"><br>
-<input id="loginPassword" placeholder="パス" type="password"><br>
+<input id="loginId">
+<input id="loginPassword" type="password">
 <button onclick="login()">ログイン</button>
 </div>
 
-<div id="registerForm" style="display:none;">
-<input id="userId" placeholder="ID"><br>
-<input id="password" placeholder="パス"><br>
-<button onclick="createUser()">登録</button>
-</div>
+<div id="welcome"></div>
 
-<div id="welcome" style="display:none;"></div>
+<div id="admin" style="display:none;">
 
-<div id="adminPanel" style="display:none;">
-<h2>管理者</h2>
-
-<h3>送金</h3>
-<input id="toUser" placeholder="送信先">
-<input id="amount" placeholder="金額" type="number">
-<button onclick="send()">送金</button>
-
-<h3>ユーザー一覧</h3>
+<h2>ユーザー</h2>
 <div id="users"></div>
 
-<h3>履歴</h3>
-<div id="history"></div>
+<h2>削除済み</h2>
+<div id="deleted"></div>
 
-</div>
+<h2>履歴</h2>
+<div id="history"></div>
 
 </div>
 
@@ -58,145 +43,116 @@ input, button { margin:5px; }
 
 let currentUser="";
 
-// 表示切替
 function showLogin(){
-  loginForm.style.display="block";
-  registerForm.style.display="none";
+ loginForm.style.display="block";
 }
 
-function showRegister(){
-  registerForm.style.display="block";
-  loginForm.style.display="none";
-}
-
-// 登録
-async function createUser(){
-  await fetch("/create-user",{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      id:userId.value,
-      password:password.value
-    })
-  });
-  alert("作成完了");
-}
-
-// ログイン
 async function login(){
-  const res = await fetch("/login",{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      id:loginId.value,
-      password:loginPassword.value
-    })
-  });
+ const res=await fetch("/login",{
+  method:"POST",
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id:loginId.value,password:loginPassword.value})
+ });
 
-  if(!res.ok){
-    alert("ログイン失敗 or BAN中");
-    return;
-  }
+ if(!res.ok){alert("失敗");return;}
 
-  const user = await res.json();
-  currentUser = user.id;
+ const u=await res.json();
+ currentUser=u.id;
+ welcome.innerText=u.id+" 残高:"+u.points;
 
-  welcome.style.display = "block";
-  welcome.innerText = user.id + " 残高:" + user.points;
-
-  // 管理者パネル
-  if(user.id==="admin"){
-    adminPanel.style.display="block";
-    loadUsers();
-    loadHistory();
-  }
-}
-
-// 送金
-async function send(){
-  const text = await fetch("/send",{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      from:currentUser,
-      to:toUser.value,
-      amount:Number(amount.value)
-    })
-  }).then(r=>r.text());
-
-  alert(text);
+ if(u.id==="admin"){
+  admin.style.display="block";
   loadUsers();
+  loadDeleted();
+  loadHistory();
+ }
 }
 
-// ✅ ユーザー一覧（BAN表示込み）
+// ユーザー一覧
 async function loadUsers(){
-  const data = await fetch("/users").then(r=>r.json());
+ const data=await fetch("/users").then(r=>r.json());
+ users.innerHTML="";
 
-  users.innerHTML="";
+ data.forEach(u=>{
+  let ban="";
+  if(u.bannedUntil){
+   ban="<span class='ban'>🚫</span>";
+  }
 
-  data.forEach(u=>{
-
-    let banText = "";
-    if(u.bannedUntil && new Date() < new Date(u.bannedUntil)){
-      banText = "<span class='ban'>🚫BAN中</span>";
-    }
-
-    users.innerHTML += `
-    <div>
-      ${u.id} (${u.points}) ${banText}
-
-      <button onclick="delUser('${u.id}')">削除</button>
-
-      <input id="ban_${u.id}" placeholder="日数">
-      <button onclick="banUser('${u.id}')">BAN</button>
-    </div>
-    `;
-  });
+  users.innerHTML+=`
+  <div class="box" onclick="selectUser('${u.id}')">
+    ${u.id} (${u.points}) ${ban}
+  </div>`;
+ });
 }
 
-// 削除
-async function delUser(id){
-  await fetch("/delete-user",{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({id})
-  });
+// 選択メニュー
+function selectUser(id){
+ if(!confirm(id+"操作する？")) return;
 
-  alert("削除完了");
-  loadUsers();
+ const action=prompt("1送金 2BAN 3解除 4削除");
+
+ if(action==="2"){
+   if(confirm("BANする？")){
+     const d=prompt("日数 or permanent");
+     fetch("/ban",{method:"POST",headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({id,days:d})});
+   }
+ }
+
+ if(action==="3"){
+  fetch("/unban",{method:"POST",headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id})});
+ }
+
+ if(action==="4"){
+  if(confirm("本当に削除？")){
+   fetch("/delete-user",{method:"POST",headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({id})});
+  }
+ }
+
+ setTimeout(loadUsers,500);
 }
 
-// ✅ BAN（結果表示付き）
-async function banUser(id){
-  const days = document.getElementById("ban_"+id).value;
+// 削除済み
+async function loadDeleted(){
+ const data=await fetch("/deleted-users").then(r=>r.json());
+ deleted.innerHTML="";
 
-  const res = await fetch("/ban",{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({id,days})
-  });
-
-  const text = await res.text();
-  alert(text); // ←これで反応見える！
-
-  loadUsers();
+ data.forEach(u=>{
+  deleted.innerHTML+=`
+  <div class="box">
+   ${u.id}
+   <button onclick="restore('${u.id}')">復帰</button>
+   <button onclick="hard('${u.id}')">完全削除</button>
+  </div>`;
+ });
 }
 
-// 履歴表示
+function restore(id){
+ fetch("/restore",{method:"POST",headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({id})});
+ setTimeout(loadDeleted,500);
+}
+
+function hard(id){
+ if(confirm("完全削除する？")){
+   fetch("/hard-delete",{method:"POST",headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({id})});
+ }
+}
+
+// 履歴
 async function loadHistory(){
-  const data = await fetch("/history").then(r=>r.json());
-
-  history.innerHTML="";
-
-  data.forEach(h=>{
-    history.innerHTML += `
-    <div>${h.from} → ${h.to} : ${h.amount}</div>
-    `;
-  });
+ const d=await fetch("/history").then(r=>r.json());
+ history.innerHTML="";
+ d.forEach(h=>{
+  history.innerHTML+=`<div>${h.from}→${h.to}:${h.amount}</div>`;
+ });
 }
 
 </script>
 
 </body>
 </html>
-``
