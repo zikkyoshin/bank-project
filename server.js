@@ -1,5 +1,4 @@
-const express = require("express");
-const bodyParser = require("body-parser");
+const express = require("express");const express = require bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 
 const app = express();
@@ -13,7 +12,7 @@ const User = mongoose.model("User", {
   id: String,
   password: String,
   points: Number,
-  bannedUntil: Date,
+  bannedUntil: String, // ✅ 文字列に統一
   deleted: Boolean
 });
 
@@ -42,16 +41,28 @@ app.post("/create-user", async (req, res) => {
   res.send("作成成功");
 });
 
-// ログイン
+// ✅ 修正済ログイン
 app.post("/login", async (req, res) => {
   const { id, password } = req.body;
 
   const user = await User.findOne({ id, password, deleted: false });
   if (!user) return res.status(401).send("失敗");
 
+  // ✅ BAN判定
   if (user.bannedUntil) {
-    if (user.bannedUntil === "permanent") return res.status(403).send("永久BAN");
-    if (new Date() < new Date(user.bannedUntil)) return res.status(403).send("BAN中");
+
+    // 永久BAN
+    if (user.bannedUntil === "permanent") {
+      return res.status(403).send("永久BAN");
+    }
+
+    // 日付BAN
+    const now = new Date();
+    const banDate = new Date(user.bannedUntil);
+
+    if (now < banDate) {
+      return res.status(403).send("BAN中");
+    }
   }
 
   res.json(user);
@@ -85,14 +96,12 @@ app.post("/send", async (req, res) => {
 
 // 一覧
 app.get("/users", async (req, res) => {
-  const users = await User.find({ deleted: false });
-  res.json(users);
+  res.json(await User.find({ deleted: false }));
 });
 
-// 削除済み一覧
+// 削除済み
 app.get("/deleted-users", async (req, res) => {
-  const users = await User.find({ deleted: true });
-  res.json(users);
+  res.json(await User.find({ deleted: true }));
 });
 
 // 削除
@@ -116,7 +125,7 @@ app.post("/restore", async (req, res) => {
   res.send("復帰");
 });
 
-// BAN
+// ✅ BAN修正
 app.post("/ban", async (req, res) => {
   const { id, days } = req.body;
 
@@ -125,7 +134,8 @@ app.post("/ban", async (req, res) => {
   } else {
     const d = new Date();
     d.setDate(d.getDate() + Number(days));
-    await User.updateOne({ id }, { bannedUntil: d });
+
+    await User.updateOne({ id }, { bannedUntil: d.toISOString() }); // ✅文字列保存
   }
 
   res.send("BAN");
@@ -143,4 +153,4 @@ app.get("/history", async (req, res) => {
   res.json(await History.find());
 });
 
-app.listen(3000);
+app.listen(3000, () => console.log("server running"));
